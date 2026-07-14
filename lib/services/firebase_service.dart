@@ -2,7 +2,6 @@
 // firebase_service.dart — طبقة خدمات Firebase + ImgBB Image Hosting
 //
 // الصور تُرفع إلى ImgBB (مجاني) ← يُعيد رابط مباشر يُحفظ في Firestore
-// الوثائق: يُحفظ اسمها فقط في Firestore حالياً
 //
 // ⚙️  للتفعيل: ضع مفتاح ImgBB API في _imgbbApiKey أدناه
 //     للحصول على المفتاح: https://api.imgbb.com → Get API Key (مجاني)
@@ -15,7 +14,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
-import '../main.dart' show Property, AppColors, PropertyType;
+import '../main.dart' show Product;
 import 'package:flutter/material.dart';
 
 class FirebaseService {
@@ -42,27 +41,12 @@ class FirebaseService {
     if (_useStorage) {
       // ── Firebase Storage (Blaze) ──
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final ref = _storage.ref('properties/images/${timestamp}_$fileName');
+      final ref = _storage.ref('products/images/${timestamp}_$fileName');
       final snapshot = await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
       return await snapshot.ref.getDownloadURL();
     } else {
       // ── ImgBB Free API ──
       return await _uploadToImgBB(bytes, fileName);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // رفع وثيقة العقار (اسم الملف فقط في Firestore)
-  // ─────────────────────────────────────────────────────────────────────
-  static Future<String> uploadDocument(Uint8List bytes, String fileName) async {
-    if (_useStorage) {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final ref = _storage.ref('properties/documents/${timestamp}_$fileName');
-      final snapshot = await ref.putData(bytes);
-      return await snapshot.ref.getDownloadURL();
-    } else {
-      // حفظ اسم الملف فقط — يمكن لاحقاً رفعه عبر ImgBB أيضاً
-      return 'doc://$fileName';
     }
   }
 
@@ -121,94 +105,34 @@ class FirebaseService {
   }
 
   // ─────────────────────────────────────────────────────────────────────
-  // حفظ بيانات عقار جديد في Firestore
+  // حفظ بيانات منتج جديد في Firestore
   // ─────────────────────────────────────────────────────────────────────
-  static Future<String> addProperty({
-    required Property property,
+  static Future<String> addProduct({
+    required Product product,
     required List<String> imageUrls,
-    String? documentUrl,
   }) async {
-    final docRef = await _firestore.collection('properties').add({
-      'createdBy':         FirebaseAuth.instance.currentUser?.uid,
-      'title':             property.title,
-      'location':          property.location,
-      'city':              property.city,
-      'neighborhood':      property.neighborhood,
-      'price':             property.price,
-      'area':              property.area,
-      'type':              property.type.name,
-      'deed':              property.deed,
-      'phone':             property.phone,
-      'description':       property.description ?? '',
-      'bedrooms':          property.bedrooms,
-      'bathrooms':         property.bathrooms,
-      'imageUrls':         imageUrls,
-      'documentUrl':       documentUrl,
-      'isFeatured':        property.isFeatured,
-      'createdAt':         FieldValue.serverTimestamp(),
+    final docRef = await _firestore.collection('products').add({
+      'createdBy':   FirebaseAuth.instance.currentUser?.uid,
+      'title':       product.title,
+      'price':       product.price,
+      'category':    product.category.name,
+      'phone':       product.phone,
+      'description': product.description ?? '',
+      'sizes':       product.sizes,
+      'imageUrls':   imageUrls,
+      'isLuxury':    product.isLuxury,
+      'createdAt':   FieldValue.serverTimestamp(),
     });
     return docRef.id;
   }
 
   // ─────────────────────────────────────────────────────────────────────
-  // جلب كل العقارات من Firestore (مرة واحدة)
+  // Stream للمنتجات (تحديث فوري Real-time)
   // ─────────────────────────────────────────────────────────────────────
-  static Future<List<Map<String, dynamic>>> getProperties() async {
-    final snapshot = await _firestore
-        .collection('properties')
-        .orderBy('createdAt', descending: true)
-        .get();
-
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Stream للعقارات (تحديث فوري Real-time)
-  // ─────────────────────────────────────────────────────────────────────
-  static Stream<QuerySnapshot> propertiesStream() {
+  static Stream<QuerySnapshot> productsStream() {
     return _firestore
-        .collection('properties')
+        .collection('products')
         .orderBy('createdAt', descending: true)
         .snapshots();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // تحويل بيانات Firestore → Property object
-  // ─────────────────────────────────────────────────────────────────────
-  static Property fromFirestore(Map<String, dynamic> data, String id) {
-    PropertyType type;
-    switch (data['type']) {
-      case 'apartment': type = PropertyType.apartment; break;
-      case 'villa':     type = PropertyType.villa;     break;
-      case 'land':      type = PropertyType.land;      break;
-      case 'commercial': type = PropertyType.commercial; break;
-      default:          type = PropertyType.apartment;
-    }
-
-    final imageUrls = (data['imageUrls'] as List?)?.cast<String>() ?? [];
-
-    return Property(
-      id:             id,
-      title:          data['title'] ?? '',
-      location:       data['location'] ?? '',
-      city:           data['city'] ?? '',
-      neighborhood:   data['neighborhood'] ?? '',
-      price:          (data['price'] ?? 0).toDouble(),
-      area:           (data['area'] ?? 0).toDouble(),
-      type:           type,
-      deed:           data['deed'] ?? 'Titre Foncier',
-      phone:          data['phone'] ?? '',
-      description:    data['description'],
-      bedrooms:       data['bedrooms'],
-      bathrooms:      data['bathrooms'],
-      imageUrls:      imageUrls,
-      isFeatured:     data['isFeatured'] ?? false,
-      gradientColors: const [AppColors.primary, AppColors.accent],
-      icon:           type == PropertyType.land ? Icons.landscape_rounded : Icons.home_rounded,
-    );
   }
 }
