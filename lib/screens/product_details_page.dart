@@ -26,7 +26,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   Future<void> _openWhatsApp(Product p) async {
     final digits = p.phone.replaceAll(RegExp(r'[^0-9]'), '');
     final sizeSuffix = _selectedSize != null ? ' — المقاس: $_selectedSize' : '';
-    final message = 'مرحباً، أنا مهتم بمنتج "${p.title}"$sizeSuffix (${formatPrice(p.price)}) على تطبيق ترابي.';
+    final message = 'مرحباً، أنا مهتم بمنتج "${p.title}"$sizeSuffix (${formatPrice(p.price)}) من متجر فازا (VAZA).';
     final uri = Uri.parse('https://wa.me/$digits?text=${Uri.encodeComponent(message)}');
     bool ok = false;
     try {

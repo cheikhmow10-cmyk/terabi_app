@@ -6,7 +6,7 @@ import '../main.dart'
 import '../services/firebase_service.dart';
 import '../widgets/web_network_image.dart';
 
-/// Terabi shop's WhatsApp number for order checkout (+222 36954055).
+/// VAZA shop's WhatsApp number for order checkout (+222 36954055).
 /// Checkout always goes to the shop, not to individual product phone
 /// numbers — this is a single-owner store, not a multi-seller marketplace.
 const String _shopWhatsAppNumber = '22236954055';
@@ -16,7 +16,7 @@ class CartPage extends StatelessWidget {
 
   Future<void> _checkout(BuildContext context, List<_CartLine> lines, double total) async {
     if (lines.isEmpty) return;
-    final buffer = StringBuffer('مرحباً، أرغب بطلب المنتجات التالية من ترابي:\n\n');
+    final buffer = StringBuffer('مرحباً، أرغب بطلب المنتجات التالية من متجر فازا (VAZA):\n\n');
     for (final line in lines) {
       final sizeSuffix = line.size != null ? ' (المقاس: ${line.size})' : '';
       buffer.writeln(

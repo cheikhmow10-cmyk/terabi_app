@@ -34,7 +34,7 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  runApp(const TerabiApp());
+  runApp(const VazaApp());
 }
 
 // ─────────────────────────────────────────
@@ -66,12 +66,12 @@ extension ProductCategoryLabel on ProductCategory {
     switch (this) {
       case ProductCategory.all: return 'الكل';
       case ProductCategory.dracs: return 'دراعات';
-      case ProductCategory.tshirts: return 'تيشيرتات';
+      case ProductCategory.tshirts: return 'تيشرتات';
       case ProductCategory.pants: return 'بناطيل';
       case ProductCategory.headwear: return 'قبعات';
       case ProductCategory.perfumes: return 'عطور';
       case ProductCategory.shoes: return 'أحذية';
-      case ProductCategory.essentials: return 'الأساسيات';
+      case ProductCategory.essentials: return 'ملابس أساسية';
       case ProductCategory.personalCare: return 'العناية الشخصية';
     }
   }
@@ -283,13 +283,13 @@ Future<void> setAdmin(bool value) async {
 // ─────────────────────────────────────────
 // Root App Widget
 // ─────────────────────────────────────────
-class TerabiApp extends StatelessWidget {
-  const TerabiApp({super.key});
+class VazaApp extends StatelessWidget {
+  const VazaApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ترابي | إكسسوارات وأزياء رجالية',
+      title: 'VAZA | فازا',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar', 'MR'),
       builder: (context, child) {
@@ -505,7 +505,7 @@ class _HomePageState extends State<HomePage> {
                 title: GestureDetector(
                   onLongPress: () => _showAdminDialog(context),
                   child: const Text(
-                    'ترابي',
+                    'VAZA',
                     style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppColors.textPrimary),
                   ),
                 ),
@@ -613,7 +613,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ── Admin Unlock — hidden behind a long-press on the "ترابي" logo.
+  // ── Admin Unlock — hidden behind a long-press on the "VAZA" logo.
   void _showAdminDialog(BuildContext context) {
     if (isAdminNotifier.value) {
       showDialog(

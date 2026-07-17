@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Terabi (ترابي) — Firestore security rules
+// VAZA (فازا) — Firestore security rules
 // Paste this into Firebase Console → Firestore Database → Rules → Publish
 // (or deploy with `firebase deploy --only firestore:rules` if you use the CLI).
 //
