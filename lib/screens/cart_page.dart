@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart'
-    show AppColors, Product, ProductCategoryLabel, cartNotifier, removeFromCart, setCartQuantity, formatPrice, productFromDoc;
+    show AppColors, Product, ProductCategoryLabel, cartNotifier, removeFromCart, setCartQuantity, formatPrice, productFromDoc, parseCartKey;
 import '../services/firebase_service.dart';
 import '../widgets/web_network_image.dart';
 
@@ -18,9 +18,12 @@ class CartPage extends StatelessWidget {
     if (lines.isEmpty) return;
     final buffer = StringBuffer('مرحباً، أرغب بطلب المنتجات التالية من ترابي:\n\n');
     for (final line in lines) {
-      buffer.writeln('• ${line.product.title} × ${line.quantity} — ${formatPrice(line.product.price * line.quantity)}');
+      final sizeSuffix = line.size != null ? ' (المقاس: ${line.size})' : '';
+      buffer.writeln(
+        '• ${line.product.title}$sizeSuffix × ${line.quantity} — ${formatPrice(line.product.price * line.quantity)}',
+      );
     }
-    buffer.writeln('\nالإجمالي: ${formatPrice(total)}');
+    buffer.writeln('\nالإجمالي: ${formatPrice(total)} (أوقية موريتانية - MRU)');
     final uri = Uri.parse('https://wa.me/$_shopWhatsAppNumber?text=${Uri.encodeComponent(buffer.toString())}');
 
     bool ok = false;
@@ -71,8 +74,16 @@ class CartPage extends StatelessWidget {
               valueListenable: cartNotifier,
               builder: (context, cart, _) {
                 final lines = cart.entries
-                    .where((e) => productsById.containsKey(e.key))
-                    .map((e) => _CartLine(product: productsById[e.key]!, quantity: e.value))
+                    .map((e) => MapEntry(parseCartKey(e.key), e))
+                    .where((e) => productsById.containsKey(e.key.productId))
+                    .map(
+                      (e) => _CartLine(
+                        cartLineKey: e.value.key,
+                        product: productsById[e.key.productId]!,
+                        size: e.key.size,
+                        quantity: e.value.value,
+                      ),
+                    )
                     .toList();
 
                 if (lines.isEmpty) {
@@ -154,9 +165,11 @@ class CartPage extends StatelessWidget {
 }
 
 class _CartLine {
+  final String cartLineKey;
   final Product product;
+  final String? size;
   final int quantity;
-  const _CartLine({required this.product, required this.quantity});
+  const _CartLine({required this.cartLineKey, required this.product, required this.size, required this.quantity});
 }
 
 class _CartItemTile extends StatelessWidget {
@@ -203,18 +216,22 @@ class _CartItemTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                 ),
+                if (line.size != null) ...[
+                  const SizedBox(height: 2),
+                  Text('المقاس: ${line.size}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
                 const SizedBox(height: 4),
                 Text(formatPrice(p.price), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _QtyButton(icon: Icons.remove_rounded, onTap: () => setCartQuantity(p.id, line.quantity - 1)),
+                    _QtyButton(icon: Icons.remove_rounded, onTap: () => setCartQuantity(line.cartLineKey, line.quantity - 1)),
                     Container(
                       width: 32,
                       alignment: Alignment.center,
                       child: Text('${line.quantity}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ),
-                    _QtyButton(icon: Icons.add_rounded, onTap: () => setCartQuantity(p.id, line.quantity + 1)),
+                    _QtyButton(icon: Icons.add_rounded, onTap: () => setCartQuantity(line.cartLineKey, line.quantity + 1)),
                   ],
                 ),
               ],
@@ -222,7 +239,7 @@ class _CartItemTile extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
-            onPressed: () => removeFromCart(p.id),
+            onPressed: () => removeFromCart(line.cartLineKey),
           ),
         ],
       ),

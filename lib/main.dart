@@ -59,15 +59,19 @@ class AppColors {
 // ─────────────────────────────────────────
 // Data Models
 // ─────────────────────────────────────────
-enum ProductCategory { all, dracs, perfumes, shoes, personalCare }
+enum ProductCategory { all, dracs, tshirts, pants, headwear, perfumes, shoes, essentials, personalCare }
 
 extension ProductCategoryLabel on ProductCategory {
   String get label {
     switch (this) {
       case ProductCategory.all: return 'الكل';
       case ProductCategory.dracs: return 'دراعات';
+      case ProductCategory.tshirts: return 'تيشيرتات';
+      case ProductCategory.pants: return 'بناطيل';
+      case ProductCategory.headwear: return 'قبعات';
       case ProductCategory.perfumes: return 'عطور';
       case ProductCategory.shoes: return 'أحذية';
+      case ProductCategory.essentials: return 'الأساسيات';
       case ProductCategory.personalCare: return 'العناية الشخصية';
     }
   }
@@ -76,8 +80,12 @@ extension ProductCategoryLabel on ProductCategory {
     switch (this) {
       case ProductCategory.all: return Icons.grid_view_rounded;
       case ProductCategory.dracs: return Icons.checkroom_rounded;
+      case ProductCategory.tshirts: return Icons.dry_cleaning_rounded;
+      case ProductCategory.pants: return Icons.style_rounded;
+      case ProductCategory.headwear: return Icons.school_rounded;
       case ProductCategory.perfumes: return Icons.spa_rounded;
       case ProductCategory.shoes: return Icons.directions_walk_rounded;
+      case ProductCategory.essentials: return Icons.inventory_2_rounded;
       case ProductCategory.personalCare: return Icons.soap_rounded;
     }
   }
@@ -132,30 +140,120 @@ void toggleFavorite(String id) {
 }
 
 // ─────────────────────────────────────────
-// Cart — in-memory only (productId → quantity), checkout is via WhatsApp
+// Cart — in-memory only (cart key → quantity), checkout is via WhatsApp.
+// The cart key encodes the product id plus the selected size (if the
+// product has sizes) so "T-shirt / M" and "T-shirt / L" are separate lines.
 // ─────────────────────────────────────────
 final ValueNotifier<Map<String, int>> cartNotifier = ValueNotifier({});
 
-void addToCart(String productId) {
+const String _cartKeySeparator = '::';
+
+String cartKey(String productId, [String? size]) {
+  if (size == null || size.isEmpty) return productId;
+  return '$productId$_cartKeySeparator$size';
+}
+
+({String productId, String? size}) parseCartKey(String key) {
+  final i = key.indexOf(_cartKeySeparator);
+  if (i == -1) return (productId: key, size: null);
+  return (productId: key.substring(0, i), size: key.substring(i + _cartKeySeparator.length));
+}
+
+void addToCart(String productId, {String? size}) {
+  final key = cartKey(productId, size);
   final map = Map<String, int>.from(cartNotifier.value);
-  map[productId] = (map[productId] ?? 0) + 1;
+  map[key] = (map[key] ?? 0) + 1;
   cartNotifier.value = map;
 }
 
-void removeFromCart(String productId) {
+void removeFromCart(String cartLineKey) {
   final map = Map<String, int>.from(cartNotifier.value);
-  map.remove(productId);
+  map.remove(cartLineKey);
   cartNotifier.value = map;
 }
 
-void setCartQuantity(String productId, int quantity) {
+void setCartQuantity(String cartLineKey, int quantity) {
   final map = Map<String, int>.from(cartNotifier.value);
   if (quantity <= 0) {
-    map.remove(productId);
+    map.remove(cartLineKey);
   } else {
-    map[productId] = quantity;
+    map[cartLineKey] = quantity;
   }
   cartNotifier.value = map;
+}
+
+void _showAddedToCartSnackBar(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: const Text('تمت الإضافة إلى السلة'),
+      duration: const Duration(milliseconds: 900),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.primary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.all(16),
+    ),
+  );
+}
+
+/// Adds [p] to the cart. If it has sizes, prompts for one via a bottom sheet
+/// first — the cart needs a size per line so checkout can list it.
+void quickAddToCart(BuildContext context, Product p) {
+  if (p.sizes.isEmpty) {
+    addToCart(p.id);
+    _showAddedToCartSnackBar(context);
+    return;
+  }
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: const Color(0xFFE8E5DF), borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('اختر المقاس', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: p.sizes
+                  .map(
+                    (s) => GestureDetector(
+                      onTap: () {
+                        addToCart(p.id, size: s);
+                        Navigator.pop(sheetContext);
+                        _showAddedToCartSnackBar(context);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(color: const Color(0xFFF3F1EC), borderRadius: BorderRadius.circular(12)),
+                        child: Text(s, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────
@@ -852,8 +950,12 @@ Product productFromDoc(QueryDocumentSnapshot doc) {
   ProductCategory category;
   switch (data['category']) {
     case 'dracs': category = ProductCategory.dracs; break;
+    case 'tshirts': category = ProductCategory.tshirts; break;
+    case 'pants': category = ProductCategory.pants; break;
+    case 'headwear': category = ProductCategory.headwear; break;
     case 'perfumes': category = ProductCategory.perfumes; break;
     case 'shoes': category = ProductCategory.shoes; break;
+    case 'essentials': category = ProductCategory.essentials; break;
     case 'personalCare': category = ProductCategory.personalCare; break;
     default: category = ProductCategory.dracs;
   }
@@ -1015,19 +1117,7 @@ class ProductCardState extends State<ProductCard> with SingleTickerProviderState
                               ),
                             ),
                             GestureDetector(
-                              onTap: () {
-                                addToCart(p.id);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('تمت الإضافة إلى السلة'),
-                                    duration: const Duration(milliseconds: 900),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: AppColors.primary,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    margin: const EdgeInsets.all(16),
-                                  ),
-                                );
-                              },
+                              onTap: () => quickAddToCart(context, p),
                               child: Container(
                                 padding: const EdgeInsets.all(7),
                                 decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),

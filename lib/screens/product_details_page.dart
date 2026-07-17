@@ -15,6 +15,7 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   int _imageIndex = 0;
   final PageController _pageController = PageController();
+  String? _selectedSize;
 
   @override
   void dispose() {
@@ -24,7 +25,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   Future<void> _openWhatsApp(Product p) async {
     final digits = p.phone.replaceAll(RegExp(r'[^0-9]'), '');
-    final message = 'مرحباً، أنا مهتم بمنتج "${p.title}" (${formatPrice(p.price)}) على تطبيق ترابي.';
+    final sizeSuffix = _selectedSize != null ? ' — المقاس: $_selectedSize' : '';
+    final message = 'مرحباً، أنا مهتم بمنتج "${p.title}"$sizeSuffix (${formatPrice(p.price)}) على تطبيق ترابي.';
     final uri = Uri.parse('https://wa.me/$digits?text=${Uri.encodeComponent(message)}');
     bool ok = false;
     try {
@@ -87,7 +89,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         height: 52,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            addToCart(p.id);
+                            if (p.sizes.isNotEmpty && _selectedSize == null) {
+                              _showError('الرجاء اختيار المقاس أولاً');
+                              return;
+                            }
+                            addToCart(p.id, size: _selectedSize);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: const Text('تمت الإضافة إلى السلة'),
@@ -242,19 +248,28 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: p.sizes
-                                  .map(
-                                    (s) => Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: const Color(0xFFE8E5DF)),
-                                      ),
-                                      child: Text(s, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              children: p.sizes.map((s) {
+                                final selected = _selectedSize == s;
+                                return GestureDetector(
+                                  onTap: () => setState(() => _selectedSize = s),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: selected ? AppColors.primary : Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: selected ? AppColors.primary : const Color(0xFFE8E5DF)),
                                     ),
-                                  )
-                                  .toList(),
+                                    child: Text(
+                                      s,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: selected ? Colors.white : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           ],
                           const SizedBox(height: 20),
