@@ -87,15 +87,16 @@ extension ProductCategoryLabel on ProductCategory {
   FaIconData get icon {
     switch (this) {
       case ProductCategory.all: return FaIconData(Icons.grid_view_rounded);
-      // Traditional robe/thobe: no dedicated Font Awesome icon exists, but
-      // "vest" (a full sleeveless outer garment) is the closest fit.
-      case ProductCategory.dracs: return FontAwesomeIcons.vest;
-      case ProductCategory.tshirts: return FontAwesomeIcons.shirt;
-      // Font Awesome's free set has no dedicated pants/trousers icon; a
-      // plain clothing hanger is the least misleading fallback available.
-      case ProductCategory.pants: return FaIconData(Icons.checkroom_outlined);
+      case ProductCategory.dracs: return FaIconData(Icons.dry_cleaning_rounded);
+      case ProductCategory.tshirts: return FaIconData(Icons.checkroom);
+      // Neither Material nor Font Awesome Free has a dedicated
+      // pants/trousers glyph; a ruler stands in for "tailored fit".
+      case ProductCategory.pants: return FaIconData(Icons.straighten_rounded);
+      // Kept on Font Awesome: Material has no hat icon at all, and
+      // Icons.checkroom_rounded would render near-identically to tshirts'
+      // Icons.checkroom right next to it in the same row.
       case ProductCategory.headwear: return FontAwesomeIcons.hatCowboy;
-      case ProductCategory.perfumes: return FontAwesomeIcons.sprayCanSparkles;
+      case ProductCategory.perfumes: return FaIconData(Icons.local_florist_rounded);
       case ProductCategory.shoes: return FontAwesomeIcons.shoePrints;
       case ProductCategory.essentials: return FaIconData(Icons.inventory_2_rounded);
       case ProductCategory.personalCare: return FaIconData(Icons.soap_rounded);
@@ -767,6 +768,8 @@ class _HomePageState extends State<HomePage> {
                     duration: const Duration(milliseconds: 200),
                     width: 60,
                     height: 60,
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: selected ? AppColors.primary : Colors.white,
                       shape: BoxShape.circle,
@@ -778,7 +781,7 @@ class _HomePageState extends State<HomePage> {
                           ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]
                           : null,
                     ),
-                    child: FaIcon(cat.icon, color: selected ? Colors.white : AppColors.textPrimary, size: 26),
+                    child: FaIcon(cat.icon, color: selected ? Colors.white : AppColors.textPrimary, size: 24),
                   ),
                   const SizedBox(height: 6),
                   Text(
