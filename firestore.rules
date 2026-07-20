@@ -4,21 +4,18 @@ rules_version = '2';
 // Paste this into Firebase Console → Firestore Database → Rules → Publish
 // (or deploy with `firebase deploy --only firestore:rules` if you use the CLI).
 //
-// Model: public read (anyone can browse the catalog), authenticated write.
-// The app signs users in anonymously on launch (see lib/main.dart), so no
-// login screen is required — this just blocks random scripts/bots that only
-// have your Firebase web config (which is not a secret, but open rules let
-// anyone read/write/delete everything through it).
+// Model: public read (anyone can browse the catalog), admin-only write.
+// The app has no anonymous auth and no public sign-up — the only way to
+// obtain a session at all is signing in as the one admin account via the
+// /admin login screen (see lib/screens/admin_login_page.dart), so gating
+// writes on that specific email is the actual enforcement, not just a UI
+// convenience.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(data) {
-      return isSignedIn() && data.createdBy == request.auth.uid;
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'cheikhmow10@gmail.com';
     }
 
     function isValidProduct(data) {
@@ -26,22 +23,15 @@ service cloud.firestore {
         && data.price is number && data.price >= 0
         && data.category is string
         && data.phone is string && data.phone.size() <= 30
-        && data.imageUrls is list && data.imageUrls.size() <= 20
-        && data.createdBy == request.auth.uid;
+        && data.imageUrls is list && data.imageUrls.size() <= 20;
     }
 
     match /products/{productId} {
       // Anyone can browse the catalog — no auth needed to read.
       allow read: if true;
 
-      // Only signed-in clients (anonymous auth counts) can create, and only
-      // with well-formed data stamped with their own uid.
-      allow create: if isSignedIn() && isValidProduct(request.resource.data);
-
-      // Only the original poster (same device/session that created it) can
-      // edit or delete it. The app has no edit/delete UI yet — this is
-      // defense-in-depth against direct API/script abuse.
-      allow update, delete: if isOwner(resource.data);
+      // Only the admin account can create, update, or delete products.
+      allow create, update, delete: if isAdmin() && isValidProduct(request.resource.data);
     }
 
     // Deny everything else by default.

@@ -1,40 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'firebase_options.dart';
-import 'screens/add_product_page.dart';
+import 'screens/admin_gate_page.dart';
 import 'screens/product_details_page.dart';
 import 'screens/cart_page.dart';
 import 'screens/main_screen.dart';
 import 'widgets/web_network_image.dart';
+import 'widgets/url_watcher.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  // Firestore rules require request.auth != null for writes; sign in
-  // anonymously so screens like Add Product keep working without a login UI.
-  if (FirebaseAuth.instance.currentUser == null) {
-    await FirebaseAuth.instance.signInAnonymously();
-  }
-  // The app has no real login system (auth is anonymous only, no phone
-  // numbers are ever collected), so "admin" isn't a verified identity — it's
-  // a locally-unlocked flag, gated by a hidden long-press + PIN entry on the
-  // home screen logo. See _isAdminPhone/setAdmin below.
-  final prefs = await SharedPreferences.getInstance();
-  isAdminNotifier.value = prefs.getBool('isAdmin') ?? false;
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
-  runApp(const VazaApp());
+void main() {
+  // runZonedGuarded so an uncaught async error (e.g. from a browser
+  // popstate/hashchange event handler, which runs outside Flutter's own
+  // build-time error boundary) can't take down the whole render tree.
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    // No anonymous sign-in: storefront reads are public (see
+    // firestore.rules), and the only write path — the admin dashboard —
+    // requires a real FirebaseAuth email/password session (see
+    // screens/admin_gate_page.dart).
+    //
+    // Deliberately NOT calling usePathUrlStrategy(): its engine-level
+    // cleanup of URLs it doesn't recognize raced against and reverted our
+    // own hash-based /admin detection (confirmed via debug logging — our
+    // listener read the correct path, then a moment later an unrelated
+    // internal cleanup event reset window.location back to '/'). Default
+    // hash-based URLs (#/admin) have no such conflict and are handled by
+    // url_watcher.dart.
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
+    runApp(const VazaApp());
+  }, (error, stack) {
+    debugPrint('Uncaught error: $error\n$stack');
+  });
 }
 
 // ─────────────────────────────────────────
@@ -257,34 +264,38 @@ void quickAddToCart(BuildContext context, Product p) {
 }
 
 // ─────────────────────────────────────────
-// Admin unlock — not real authentication. There's no login system (auth is
-// anonymous only), so this just gates the Add Product FAB behind a locally
-// stored flag, set by matching a hardcoded phone number in a hidden dialog.
-// Anyone who knows the number can unlock it on their own device; this hides
-// the button from regular users, it does not secure the write itself
-// (Firestore rules are still the real backstop for who can write products).
-// ─────────────────────────────────────────
-const String _adminPhoneDigits = '22236954055'; // +222 36954055
-
-bool _isAdminPhone(String input) {
-  final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
-  if (digits.isEmpty) return false;
-  return digits == _adminPhoneDigits || digits == _adminPhoneDigits.substring(3);
-}
-
-final ValueNotifier<bool> isAdminNotifier = ValueNotifier(false);
-
-Future<void> setAdmin(bool value) async {
-  isAdminNotifier.value = value;
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('isAdmin', value);
-}
-
-// ─────────────────────────────────────────
 // Root App Widget
 // ─────────────────────────────────────────
-class VazaApp extends StatelessWidget {
+class VazaApp extends StatefulWidget {
   const VazaApp({super.key});
+
+  @override
+  State<VazaApp> createState() => _VazaAppState();
+}
+
+class _VazaAppState extends State<VazaApp> {
+  late String _path;
+  StreamSubscription<void>? _urlSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _path = currentPath();
+    // MaterialApp's initialRoute is only read once at boot — it doesn't
+    // react to the browser URL changing afterwards (e.g. editing just the
+    // hash, which never triggers a page reload). Watch for that directly so
+    // navigating to /admin actually shows the admin gate without a reload.
+    _urlSub = watchUrlChanges().listen((_) {
+      final next = currentPath();
+      if (next != _path && mounted) setState(() => _path = next);
+    });
+  }
+
+  @override
+  void dispose() {
+    _urlSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +361,7 @@ class VazaApp extends StatelessWidget {
           labelLarge: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
-      home: const MainScreen(),
+      home: _path.startsWith('/admin') ? const AdminGatePage() : const MainScreen(),
     );
   }
 }
@@ -502,12 +513,9 @@ class _HomePageState extends State<HomePage> {
                 foregroundColor: AppColors.textPrimary,
                 elevation: 0,
                 centerTitle: false,
-                title: GestureDetector(
-                  onLongPress: () => _showAdminDialog(context),
-                  child: const Text(
-                    'VAZA',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppColors.textPrimary),
-                  ),
+                title: const Text(
+                  'VAZA',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppColors.textPrimary),
                 ),
                 actions: [
                   _buildCartIcon(context),
@@ -562,121 +570,8 @@ class _HomePageState extends State<HomePage> {
               const SliverToBoxAdapter(child: SizedBox(height: 90)),
             ],
           ),
-          floatingActionButton: ValueListenableBuilder<bool>(
-            valueListenable: isAdminNotifier,
-            builder: (context, isAdmin, _) {
-              if (!isAdmin) return const SizedBox.shrink();
-              return FloatingActionButton(
-                heroTag: 'addProductFab',
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                onPressed: () async {
-                  final result = await Navigator.of(context).push(
-                    PageRouteBuilder(
-                      transitionDuration: const Duration(milliseconds: 450),
-                      pageBuilder: (_, anim, secondAnim) {
-                        final curvedAnim = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-                        return SlideTransition(
-                          position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(curvedAnim),
-                          child: const AddProductPage(),
-                        );
-                      },
-                    ),
-                  );
-
-                  // The StreamBuilder auto-refreshes when Firestore updates.
-                  // We only need to show the success snackbar here.
-                  if (result is Product && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Row(
-                          children: [
-                            Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                            SizedBox(width: 10),
-                            Text('تمت إضافة منتجك بنجاح!'),
-                          ],
-                        ),
-                        backgroundColor: AppColors.success,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        margin: const EdgeInsets.all(16),
-                      ),
-                    );
-                  }
-                },
-                child: const Icon(Icons.add_rounded),
-              );
-            },
-          ),
         );
       },
-    );
-  }
-
-  // ── Admin Unlock — hidden behind a long-press on the "VAZA" logo.
-  void _showAdminDialog(BuildContext context) {
-    if (isAdminNotifier.value) {
-      showDialog(
-        context: context,
-        builder: (dialogContext) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            title: const Text('وضع المشرف مفعّل'),
-            content: const Text('هل تريد الخروج من وضع المشرف على هذا الجهاز؟'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
-              TextButton(
-                onPressed: () async {
-                  await setAdmin(false);
-                  if (dialogContext.mounted) Navigator.pop(dialogContext);
-                },
-                child: const Text('خروج', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        ),
-      );
-      return;
-    }
-
-    final phoneCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('دخول المشرف'),
-          content: TextField(
-            controller: phoneCtrl,
-            autofocus: true,
-            keyboardType: TextInputType.phone,
-            textDirection: TextDirection.rtl,
-            decoration: const InputDecoration(hintText: 'رقم هاتف المشرف'),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
-            ElevatedButton(
-              onPressed: () async {
-                final matched = _isAdminPhone(phoneCtrl.text);
-                if (matched) await setAdmin(true);
-                if (dialogContext.mounted) Navigator.pop(dialogContext);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(matched ? 'تم تفعيل وضع المشرف' : 'رقم غير صحيح'),
-                      backgroundColor: matched ? AppColors.success : Colors.red.shade600,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      margin: const EdgeInsets.all(16),
-                    ),
-                  );
-                }
-              },
-              child: const Text('تأكيد'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // includes Uint8List
 import 'package:image_picker/image_picker.dart';
@@ -5,18 +6,21 @@ import '../main.dart' show AppColors, Product, ProductCategory, ProductCategoryL
 import '../services/firebase_service.dart';
 
 // ─────────────────────────────────────────
-// Add Product Page
+// Admin Dashboard — only reachable via /admin after a successful
+// FirebaseAuth email/password sign-in (see AdminGatePage). Currently a
+// single-purpose "add product" form; the storefront has no reference to
+// this page anywhere.
 // ─────────────────────────────────────────
-class AddProductPage extends StatefulWidget {
-  const AddProductPage({super.key});
+class AdminDashboardPage extends StatefulWidget {
+  const AdminDashboardPage({super.key});
 
   @override
-  State<AddProductPage> createState() => _AddProductPageState();
+  State<AdminDashboardPage> createState() => _AdminDashboardPageState();
 }
 
 const List<String> _availableSizes = ['S', 'M', 'L', 'XL', 'XXL', 'مقاس واحد'];
 
-class _AddProductPageState extends State<AddProductPage> {
+class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final _formKey = GlobalKey<FormState>();
 
   final _titleCtrl = TextEditingController();
@@ -97,13 +101,43 @@ class _AddProductPageState extends State<AddProductPage> {
       await FirebaseService.addProduct(product: newProduct, imageUrls: imageUrls);
 
       if (!mounted) return;
+      _resetForm();
       setState(() => _isUploading = false);
-      Navigator.of(context).pop(newProduct);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text('تم نشر المنتج بنجاح'),
+            ],
+          ),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isUploading = false);
       _showErrorSnackBar('حدث خطأ أثناء النشر: $e');
     }
+  }
+
+  void _resetForm() {
+    _formKey.currentState?.reset();
+    _titleCtrl.clear();
+    _priceCtrl.clear();
+    _descCtrl.clear();
+    _phoneCtrl.clear();
+    setState(() {
+      _selectedCategory = ProductCategory.dracs;
+      _isLuxury = false;
+      _selectedSizes.clear();
+      _selectedImageBytes.clear();
+      _selectedImageNames.clear();
+    });
   }
 
   void _showErrorSnackBar(String message) {
@@ -126,6 +160,8 @@ class _AddProductPageState extends State<AddProductPage> {
 
   @override
   Widget build(BuildContext context) {
+    final adminEmail = FirebaseAuth.instance.currentUser?.email ?? '';
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Stack(
@@ -136,11 +172,23 @@ class _AddProductPageState extends State<AddProductPage> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              title: const Text('إضافة منتج جديد', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
-                onPressed: () => Navigator.of(context).pop(),
+              automaticallyImplyLeading: false,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('لوحة تحكم المشرف', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  if (adminEmail.isNotEmpty)
+                    Text(adminEmail, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                ],
               ),
+              actions: [
+                IconButton(
+                  tooltip: 'تسجيل الخروج',
+                  icon: const Icon(Icons.logout_rounded, size: 20),
+                  onPressed: () => FirebaseAuth.instance.signOut(),
+                ),
+                const SizedBox(width: 8),
+              ],
             ),
             body: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -150,6 +198,11 @@ class _AddProductPageState extends State<AddProductPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text(
+                      'إضافة منتج جديد',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 16),
                     _buildSection(
                       title: 'التصنيف',
                       icon: Icons.category_rounded,
