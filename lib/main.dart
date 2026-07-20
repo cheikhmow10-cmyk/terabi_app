@@ -189,6 +189,10 @@ void setCartQuantity(String cartLineKey, int quantity) {
   cartNotifier.value = map;
 }
 
+void clearCart() {
+  cartNotifier.value = {};
+}
+
 void _showAddedToCartSnackBar(BuildContext context) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(

@@ -1,54 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../main.dart'
     show AppColors, Product, ProductCategoryLabel, cartNotifier, removeFromCart, setCartQuantity, formatPrice, productFromDoc, parseCartKey;
 import '../services/firebase_service.dart';
 import '../widgets/web_network_image.dart';
-
-/// VAZA shop's WhatsApp number for order checkout (+222 36954055).
-/// Checkout always goes to the shop, not to individual product phone
-/// numbers — this is a single-owner store, not a multi-seller marketplace.
-const String _shopWhatsAppNumber = '22236954055';
+import 'checkout_page.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
-
-  Future<void> _checkout(BuildContext context, List<_CartLine> lines, double total) async {
-    if (lines.isEmpty) return;
-    final buffer = StringBuffer('مرحباً، أرغب بطلب المنتجات التالية من متجر فازا (VAZA):\n\n');
-    for (final line in lines) {
-      final sizeSuffix = line.size != null ? ' (المقاس: ${line.size})' : '';
-      buffer.writeln(
-        '• ${line.product.title}$sizeSuffix × ${line.quantity} — ${formatPrice(line.product.price * line.quantity)}',
-      );
-    }
-    buffer.writeln('\nالإجمالي: ${formatPrice(total)} (أوقية موريتانية - MRU)');
-    final uri = Uri.parse('https://wa.me/$_shopWhatsAppNumber?text=${Uri.encodeComponent(buffer.toString())}');
-
-    bool ok = false;
-    try {
-      // webOnlyWindowName forces a new tab on Flutter Web — without it,
-      // the async platform-channel hop to url_launcher_web can land after
-      // the click's user-activation window closes, and browsers silently
-      // block the resulting window.open() as a popup.
-      ok = await launchUrl(uri, mode: LaunchMode.platformDefault, webOnlyWindowName: '_blank');
-    } catch (_) {
-      ok = false;
-    }
-
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('تعذر فتح واتساب — تأكد من السماح بالنوافذ المنبثقة لهذا الموقع'),
-          backgroundColor: Colors.red.shade600,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,15 +97,17 @@ class CartPage extends StatelessWidget {
                               width: double.infinity,
                               height: 54,
                               child: ElevatedButton.icon(
-                                onPressed: () => _checkout(context, lines, total),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const CheckoutPage()),
+                                ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF25D366),
+                                  backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   elevation: 3,
                                 ),
-                                icon: const Icon(Icons.message_rounded, size: 20),
-                                label: const Text('إتمام الطلب عبر واتساب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                icon: const Icon(Icons.shopping_cart_checkout_rounded, size: 20),
+                                label: const Text('متابعة إلى الدفع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                               ),
                             ),
                           ],
