@@ -29,13 +29,48 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _nameFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _addressFocus = FocusNode();
+  final _nameFieldKey = GlobalKey();
+  final _phoneFieldKey = GlobalKey();
+  final _addressFieldKey = GlobalKey();
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameFocus.addListener(() => _scrollFieldIntoView(_nameFocus, _nameFieldKey));
+    _phoneFocus.addListener(() => _scrollFieldIntoView(_phoneFocus, _phoneFieldKey));
+    _addressFocus.addListener(() => _scrollFieldIntoView(_addressFocus, _addressFieldKey));
+  }
+
+  // iOS Safari doesn't always report the keyboard height through
+  // MediaQuery.viewInsets in time for the automatic scroll-into-view
+  // behavior to work, so each field's focus is scrolled into view
+  // manually once the keyboard's open animation has had time to start.
+  void _scrollFieldIntoView(FocusNode node, GlobalKey key) {
+    if (!node.hasFocus) return;
+    Future.delayed(const Duration(milliseconds: 300), () {
+      final fieldContext = key.currentContext;
+      if (!mounted || fieldContext == null) return;
+      Scrollable.ensureVisible(
+        fieldContext,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        alignment: 0.1,
+      );
+    });
+  }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _addressCtrl.dispose();
+    _nameFocus.dispose();
+    _phoneFocus.dispose();
+    _addressFocus.dispose();
     super.dispose();
   }
 
@@ -150,7 +185,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         ),
                       )
                     : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 100),
                         physics: const BouncingScrollPhysics(),
                         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                         child: Column(
@@ -182,7 +217,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 child: Column(
                                   children: [
                                     _buildTextField(
+                                      fieldKey: _nameFieldKey,
                                       controller: _nameCtrl,
+                                      focusNode: _nameFocus,
                                       label: 'الاسم الكامل',
                                       hint: 'مثال: محمد ولد أحمد',
                                       icon: Icons.person_outline_rounded,
@@ -190,7 +227,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                     ),
                                     const SizedBox(height: 14),
                                     _buildTextField(
+                                      fieldKey: _phoneFieldKey,
                                       controller: _phoneCtrl,
+                                      focusNode: _phoneFocus,
                                       label: 'رقم الهاتف',
                                       hint: '+222 XX XX XX XX',
                                       icon: Icons.phone_rounded,
@@ -199,7 +238,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                     ),
                                     const SizedBox(height: 14),
                                     _buildTextField(
+                                      fieldKey: _addressFieldKey,
                                       controller: _addressCtrl,
+                                      focusNode: _addressFocus,
                                       label: 'عنوان التوصيل',
                                       hint: 'المدينة، الحي، أقرب معلم...',
                                       icon: Icons.location_on_outlined,
@@ -282,7 +323,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _buildTextField({
+    required Key fieldKey,
     required TextEditingController controller,
+    required FocusNode focusNode,
     required String label,
     required String hint,
     required IconData icon,
@@ -291,6 +334,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     String? Function(String?)? validator,
   }) {
     return Column(
+      key: fieldKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -303,6 +347,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
           keyboardType: keyboardType,
           maxLines: maxLines,
           textDirection: TextDirection.rtl,
