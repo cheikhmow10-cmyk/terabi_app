@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../main.dart'
     show AppColors, Product, ProductCategoryLabel, cartNotifier, removeFromCart, setCartQuantity, formatPrice, productFromDoc, parseCartKey;
 import '../services/firebase_service.dart';
@@ -161,9 +162,9 @@ class _CartItemTile extends StatelessWidget {
                       fit: BoxFit.cover,
                       placeholderBuilder: (context) => Container(color: AppColors.chipUnselected),
                       errorBuilder: (context) =>
-                          Container(color: AppColors.chipUnselected, child: Icon(p.category.icon, color: AppColors.textHint)),
+                          Container(color: AppColors.chipUnselected, child: FaIcon(p.category.icon, color: AppColors.textHint)),
                     )
-                  : Container(color: AppColors.chipUnselected, child: Icon(p.category.icon, color: AppColors.textHint)),
+                  : Container(color: AppColors.chipUnselected, child: FaIcon(p.category.icon, color: AppColors.textHint)),
             ),
           ),
           const SizedBox(width: 12),

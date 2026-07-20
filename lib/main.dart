@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
@@ -83,17 +84,21 @@ extension ProductCategoryLabel on ProductCategory {
     }
   }
 
-  IconData get icon {
+  FaIconData get icon {
     switch (this) {
-      case ProductCategory.all: return Icons.grid_view_rounded;
-      case ProductCategory.dracs: return Icons.checkroom_rounded;
-      case ProductCategory.tshirts: return Icons.dry_cleaning_rounded;
-      case ProductCategory.pants: return Icons.style_rounded;
-      case ProductCategory.headwear: return Icons.school_rounded;
-      case ProductCategory.perfumes: return Icons.spa_rounded;
-      case ProductCategory.shoes: return Icons.directions_walk_rounded;
-      case ProductCategory.essentials: return Icons.inventory_2_rounded;
-      case ProductCategory.personalCare: return Icons.soap_rounded;
+      case ProductCategory.all: return FaIconData(Icons.grid_view_rounded);
+      // Traditional robe/thobe: no dedicated Font Awesome icon exists, but
+      // "vest" (a full sleeveless outer garment) is the closest fit.
+      case ProductCategory.dracs: return FontAwesomeIcons.vest;
+      case ProductCategory.tshirts: return FontAwesomeIcons.shirt;
+      // Font Awesome's free set has no dedicated pants/trousers icon; a
+      // plain clothing hanger is the least misleading fallback available.
+      case ProductCategory.pants: return FaIconData(Icons.checkroom_outlined);
+      case ProductCategory.headwear: return FontAwesomeIcons.hatCowboy;
+      case ProductCategory.perfumes: return FontAwesomeIcons.sprayCanSparkles;
+      case ProductCategory.shoes: return FontAwesomeIcons.shoePrints;
+      case ProductCategory.essentials: return FaIconData(Icons.inventory_2_rounded);
+      case ProductCategory.personalCare: return FaIconData(Icons.soap_rounded);
     }
   }
 }
@@ -773,7 +778,7 @@ class _HomePageState extends State<HomePage> {
                           ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]
                           : null,
                     ),
-                    child: Icon(cat.icon, color: selected ? Colors.white : AppColors.textPrimary, size: 26),
+                    child: FaIcon(cat.icon, color: selected ? Colors.white : AppColors.textPrimary, size: 26),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -913,7 +918,7 @@ class ProductCardState extends State<ProductCard> with SingleTickerProviderState
   Widget _placeholder(Product p) {
     return Container(
       color: AppColors.chipUnselected,
-      child: Center(child: Icon(p.category.icon, size: 40, color: AppColors.textHint)),
+      child: Center(child: FaIcon(p.category.icon, size: 40, color: AppColors.textHint)),
     );
   }
 
