@@ -1,9 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // includes Uint8List
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import '../main.dart' show AppColors, Product, ProductCategory, ProductCategoryLabel;
+import '../main.dart' show AppColors, CategoryIcon, Product, ProductCategory, ProductCategoryLabel;
 import '../services/firebase_service.dart';
 
 // ─────────────────────────────────────────
@@ -369,7 +368,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                FaIcon(cat.icon, color: selected ? Colors.white : AppColors.textSecondary, size: 18),
+                CategoryIcon(category: cat, color: selected ? Colors.white : AppColors.textSecondary, size: 18),
                 const SizedBox(width: 6),
                 Text(
                   cat.label,

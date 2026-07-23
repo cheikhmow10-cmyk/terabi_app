@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../main.dart' show AppColors, Product, ProductCategoryLabel, favoriteIdsNotifier, toggleFavorite, formatPrice, addToCart;
+import '../main.dart' show AppColors, CategoryIcon, Product, ProductCategoryLabel, favoriteIdsNotifier, toggleFavorite, formatPrice, addToCart;
 import '../widgets/web_network_image.dart';
 
 class ProductDetailPage extends StatefulWidget {
@@ -207,7 +206,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    FaIcon(p.category.icon, size: 14, color: AppColors.textSecondary),
+                                    CategoryIcon(category: p.category, size: 14, color: AppColors.textSecondary),
                                     const SizedBox(width: 5),
                                     Text(
                                       p.category.label,
@@ -300,7 +299,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     if (p.imageUrls.isEmpty) {
       return Container(
         color: AppColors.primary,
-        child: Center(child: FaIcon(p.category.icon, size: 80, color: Colors.white.withValues(alpha: 0.3))),
+        child: Center(child: CategoryIcon(category: p.category, size: 80, color: Colors.white.withValues(alpha: 0.3))),
       );
     }
     return Stack(
@@ -316,7 +315,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             placeholderBuilder: (context) => Container(color: AppColors.chipUnselected),
             errorBuilder: (context) => Container(
               color: AppColors.chipUnselected,
-              child: Center(child: FaIcon(p.category.icon, size: 60, color: AppColors.textHint)),
+              child: Center(child: CategoryIcon(category: p.category, size: 60, color: AppColors.textHint)),
             ),
           ),
         ),

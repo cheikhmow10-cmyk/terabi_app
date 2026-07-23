@@ -84,24 +84,70 @@ extension ProductCategoryLabel on ProductCategory {
     }
   }
 
+  // Note: ProductCategory.pants has no entry here — neither Material nor
+  // Font Awesome Free ships a pants/trousers glyph, so it's rendered via a
+  // small custom silhouette in CategoryIcon instead. This getter still
+  // covers it (falling through to a placeholder) purely so the switch stays
+  // exhaustive; that branch is never actually reached for rendering.
   FaIconData get icon {
     switch (this) {
       case ProductCategory.all: return FaIconData(Icons.grid_view_rounded);
-      case ProductCategory.dracs: return FaIconData(Icons.dry_cleaning_rounded);
-      case ProductCategory.tshirts: return FaIconData(Icons.checkroom);
-      // Neither Material nor Font Awesome Free has a dedicated
-      // pants/trousers glyph; a ruler stands in for "tailored fit".
-      case ProductCategory.pants: return FaIconData(Icons.straighten_rounded);
-      // Kept on Font Awesome: Material has no hat icon at all, and
-      // Icons.checkroom_rounded would render near-identically to tshirts'
-      // Icons.checkroom right next to it in the same row.
+      // No dedicated Font Awesome "thobe/robe" glyph exists; "vest" (a full
+      // sleeveless outer garment) is the closest fit among the alternatives.
+      case ProductCategory.dracs: return FontAwesomeIcons.vest;
+      case ProductCategory.tshirts: return FontAwesomeIcons.shirt;
+      case ProductCategory.pants: return FontAwesomeIcons.shirt; // unused, see CategoryIcon
       case ProductCategory.headwear: return FontAwesomeIcons.hatCowboy;
-      case ProductCategory.perfumes: return FaIconData(Icons.local_florist_rounded);
+      case ProductCategory.perfumes: return FontAwesomeIcons.sprayCanSparkles;
       case ProductCategory.shoes: return FontAwesomeIcons.shoePrints;
       case ProductCategory.essentials: return FaIconData(Icons.inventory_2_rounded);
       case ProductCategory.personalCare: return FaIconData(Icons.soap_rounded);
     }
   }
+}
+
+/// Single place that renders a category's icon, so every screen stays in
+/// sync automatically. Pants gets a custom silhouette (see [_PantsPainter])
+/// since no pants/trousers glyph exists in Material or Font Awesome Free;
+/// every other category renders its [ProductCategoryLabel.icon] via [FaIcon].
+class CategoryIcon extends StatelessWidget {
+  final ProductCategory category;
+  final double size;
+  final Color color;
+  const CategoryIcon({super.key, required this.category, required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    if (category == ProductCategory.pants) {
+      return CustomPaint(size: Size(size, size), painter: _PantsPainter(color));
+    }
+    return FaIcon(category.icon, size: size, color: color);
+  }
+}
+
+class _PantsPainter extends CustomPainter {
+  final Color color;
+  const _PantsPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final path = Path()
+      ..moveTo(w * 0.18, 0)
+      ..lineTo(w * 0.82, 0)
+      ..lineTo(w * 0.82, h * 0.12)
+      ..lineTo(w * 0.62, h)
+      ..lineTo(w * 0.52, h)
+      ..lineTo(w * 0.50, h * 0.35)
+      ..lineTo(w * 0.48, h)
+      ..lineTo(w * 0.38, h)
+      ..lineTo(w * 0.18, h * 0.12)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PantsPainter oldDelegate) => oldDelegate.color != color;
 }
 
 class Product {
@@ -781,7 +827,7 @@ class _HomePageState extends State<HomePage> {
                           ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]
                           : null,
                     ),
-                    child: FaIcon(cat.icon, color: selected ? Colors.white : AppColors.textPrimary, size: 24),
+                    child: CategoryIcon(category: cat, color: selected ? Colors.white : AppColors.textPrimary, size: 22),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -921,7 +967,7 @@ class ProductCardState extends State<ProductCard> with SingleTickerProviderState
   Widget _placeholder(Product p) {
     return Container(
       color: AppColors.chipUnselected,
-      child: Center(child: FaIcon(p.category.icon, size: 40, color: AppColors.textHint)),
+      child: Center(child: CategoryIcon(category: p.category, size: 40, color: AppColors.textHint)),
     );
   }
 
